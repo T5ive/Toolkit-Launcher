@@ -347,6 +347,7 @@ public partial class FrmSetting : Form
 
     private void txtName_TextChanged(object sender, EventArgs e)
     {
+        if (string.IsNullOrWhiteSpace(txtName.Text)) return;
         btnName.Text = treeOption.SelectedNode.Text == txtName.Text ? "Change" : "Change*";
     }
 
@@ -394,5 +395,5 @@ public partial class FrmSetting : Form
 
     #endregion Speacial Events
 
-    
+
 }
