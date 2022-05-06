@@ -189,22 +189,16 @@ public static class Utility
 
     public static MyEnums.TargetType GetTarget(this string value)
     {
-        if (value.EndWith(".exe"))
-        {
-            return MyEnums.TargetType.Exe;
-        }
+        var attr = File.GetAttributes(value);
+        if (attr.HasFlag(FileAttributes.Directory))
+            return MyEnums.TargetType.Directory;
 
-        if (value.EndWith(".dll"))
+        return Path.GetExtension(value) switch
         {
-            return MyEnums.TargetType.Dll;
-        }
-
-        if (value.Contains('.'))
-        {
-            return MyEnums.TargetType.All;
-        }
-
-        return MyEnums.TargetType.Directory;
+            ".exe" => MyEnums.TargetType.Exe,
+            ".dll" => MyEnums.TargetType.Dll,
+            _ => MyEnums.TargetType.All
+        };
     }
 
     public static bool IsTarget(this MyEnums.TargetType targetType, List<bool> enable)
