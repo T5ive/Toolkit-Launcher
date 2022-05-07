@@ -8,4 +8,4 @@ Not only will it open exe files, you can also open folders
 
 You can add, remove, reposition by referring to the picture
 
-![](https://i.imgur.com/qda2I5j.png)
+![](https://i.imgur.com/Wv0AQKY.png)
