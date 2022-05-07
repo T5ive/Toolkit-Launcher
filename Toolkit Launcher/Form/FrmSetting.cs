@@ -2,6 +2,12 @@
 
 public partial class FrmSetting : Form
 {
+    #region Variable
+
+    private static bool _editor;
+
+    #endregion Variable
+
     public FrmSetting()
     {
         InitializeComponent();
@@ -97,21 +103,29 @@ public partial class FrmSetting : Form
             case MyEnums.GroupType.Item:
                 gbDetail.Enabled = true;
                 panelAdd.Enabled = false;
+                addToolStripMenuItem.Enabled = false;
+                renameToolStripMenuItem.Enabled = true;
                 break;
 
             case MyEnums.GroupType.Separator:
                 gbDetail.Enabled = false;
                 panelAdd.Enabled = false;
+                addToolStripMenuItem.Enabled = false;
+                renameToolStripMenuItem.Enabled = false;
                 break;
 
             case MyEnums.GroupType.Header:
                 gbDetail.Enabled = true;
                 panelAdd.Enabled = true;
+                addToolStripMenuItem.Enabled = true;
+                renameToolStripMenuItem.Enabled = true;
                 break;
 
             default:
                 gbDetail.Enabled = false;
                 panelAdd.Enabled = true;
+                addToolStripMenuItem.Enabled = true;
+                renameToolStripMenuItem.Enabled = false;
                 break;
         }
     }
@@ -152,6 +166,7 @@ public partial class FrmSetting : Form
             radK.Checked = true;
         }
 
+        _editor = true;
         listTarget.ClearSelected();
         for (var i = 0; i < detail.Advance.TargetTypes.Count; i++)
         {
@@ -161,6 +176,7 @@ public partial class FrmSetting : Form
             }
         }
 
+        _editor = false;
         btnPath.Enabled = detail.Type != MyEnums.GroupType.Header;
     }
 
@@ -174,7 +190,9 @@ public partial class FrmSetting : Form
         chkCMD.Checked = false;
         radK.Checked = false;
         radC.Checked = true;
+        _editor = true;
         listTarget.ClearSelected();
+        _editor = false;
     }
 
     #endregion Get Detail
@@ -204,6 +222,7 @@ public partial class FrmSetting : Form
         removeToolStripMenuItem.Enabled = detected;
         moveUpToolStripMenuItem.Enabled = detected;
         moveDownToolStripMenuItem.Enabled = detected;
+        renameToolStripMenuItem.Enabled = detected;
         if (SelectedNull()) return;
         int itemCount;
         if (treeOption.SelectedNode.Parent == null)
@@ -236,6 +255,40 @@ public partial class FrmSetting : Form
         {
             ItemsManager.Remove(treeOption);
         }
+        if (SelectedNull()) return;
+        if (e.KeyCode == Keys.F2)
+        {
+            treeOption.LabelEdit = true;
+            if (!treeOption.SelectedNode.IsEditing)
+            {
+                treeOption.SelectedNode.BeginEdit();
+            }
+        }
+    }
+
+    private void treeOption_AfterLabelEdit(object sender, NodeLabelEditEventArgs e)
+    {
+        if (e.Label == null) return;
+        if (e.Label.Length > 0)
+        {
+            if (ItemsManager.Rename(treeOption, e.Label))
+            {
+                e.Node.EndEdit(false);
+                treeOption.LabelEdit = false;
+                txtName.Text = e.Label;
+            }
+            else
+            {
+                e.CancelEdit = true;
+                e.Node.BeginEdit();
+            }
+        }
+        else
+        {
+            e.CancelEdit = true;
+            MyMessage.ShowError("Invalid name.\nThe label cannot be blank");
+            e.Node.BeginEdit();
+        }
     }
 
     private void removeToolStripMenuItem_Click(object sender, EventArgs e)
@@ -253,13 +306,41 @@ public partial class FrmSetting : Form
         ItemsManager.MoveUpDown(MyEnums.MoveType.MoveDown, treeOption);
     }
 
+    private void headerToolStripMenuItem_Click(object sender, EventArgs e)
+    {
+        ItemsManager.AddGroup(MyEnums.GroupType.Header, treeOption);
+    }
+
+    private void separatorToolStripMenuItem_Click(object sender, EventArgs e)
+    {
+        ItemsManager.AddGroup(MyEnums.GroupType.Separator, treeOption);
+    }
+
+    private void itemToolStripMenuItem_Click(object sender, EventArgs e)
+    {
+        ItemsManager.AddGroup(MyEnums.GroupType.Item, treeOption);
+    }
+
+    private void renameToolStripMenuItem_Click(object sender, EventArgs e)
+    {
+        if (SelectedNull()) return;
+        treeOption.LabelEdit = true;
+        if (!treeOption.SelectedNode.IsEditing)
+        {
+            treeOption.SelectedNode.BeginEdit();
+        }
+    }
+
     #endregion Menu Button
 
     #region Button Events
 
     private void btnName_Click(object sender, EventArgs e)
     {
-        ItemsManager.Rename(treeOption, txtName.Text);
+        if (ItemsManager.Rename(treeOption, txtName.Text))
+        {
+            btnName.Text = "Change";
+        }
     }
 
     private void btnPath_Click(object sender, EventArgs e)
@@ -351,34 +432,6 @@ public partial class FrmSetting : Form
         btnName.Text = treeOption.SelectedNode.Text == txtName.Text ? "Change" : "Change*";
     }
 
-    private void btnSave_Click(object sender, EventArgs e)
-    {
-        var target = new List<bool>
-        {
-            true,
-            true,
-            true,
-            false
-        };
-
-        for (var i = 0; i < listTarget.Items.Count; i++)
-        {
-            var selected = listTarget.SelectedIndices;
-            if (selected.Contains(i))
-            {
-                target[i] = true;
-            }
-            else
-            {
-                target[i] = false;
-            }
-        }
-
-        var type = radC.Checked ? MyEnums.CMDType.C : MyEnums.CMDType.K;
-
-        ItemsManager.UpdateInfo(treeOption, txtCommand.Text, target, chkAdmin.Checked, chkCMD.Checked, type);
-    }
-
     private void All_CheckedChanged(object sender, EventArgs e)
     {
         if (chkCMD.Checked)
@@ -391,9 +444,56 @@ public partial class FrmSetting : Form
             radC.Enabled = false;
             radK.Enabled = false;
         }
+
+        SaveTemp();
+    }
+
+    private void txtCommand_TextChanged(object sender, EventArgs e)
+    {
+        SaveTemp();
+    }
+
+    private void listTarget_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        SaveTemp();
+    }
+
+    private void SaveTemp()
+    {
+        if (_editor) return;
+
+        try
+        {
+            var target = new List<bool>
+            {
+                true,
+                true,
+                true,
+                false
+            };
+
+            for (var i = 0; i < listTarget.Items.Count; i++)
+            {
+                var selected = listTarget.SelectedIndices;
+                if (selected.Contains(i))
+                {
+                    target[i] = true;
+                }
+                else
+                {
+                    target[i] = false;
+                }
+            }
+
+            var type = radC.Checked ? MyEnums.CMDType.C : MyEnums.CMDType.K;
+
+            ItemsManager.UpdateInfo(treeOption, txtCommand.Text, target, chkAdmin.Checked, chkCMD.Checked, type);
+        }
+        catch
+        {
+            //
+        }
     }
 
     #endregion Speacial Events
-
-
 }

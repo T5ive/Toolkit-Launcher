@@ -387,6 +387,7 @@ public static class ItemsManager
 
     #region Utility
 
+    private static GroupInfo _lastGroupInfo = null!;
     public static void UpdateIdentify(TreeView treeView, string newName, string path, string iconPath, ListInfo? list = null)
     {
         list ??= PublicClass.TempListInfo;
@@ -398,15 +399,15 @@ public static class ItemsManager
         Rename(treeView, group, fullPath, newName, list, false);
     }
 
-    public static void Rename(TreeView treeView, string newName, ListInfo? list = null)
+    public static bool Rename(TreeView treeView, string newName, ListInfo? list = null)
     {
         list ??= PublicClass.TempListInfo;
         var fullPath = treeView.SelectedNode.FullPath;
         var group = GetGroupInfo(fullPath, list);
-        Rename(treeView, group, fullPath, newName, list);
+        return Rename(treeView, group, fullPath, newName, list);
     }
 
-    private static void Rename(TreeView treeView, GroupInfo group, string fullPath, string newName, ListInfo list, bool duplicate = true)
+    private static bool Rename(TreeView treeView, GroupInfo group, string fullPath, string newName, ListInfo list, bool duplicate = true)
     {
         var isDuplicate = fullPath.Contains('\\') ?
             newName.IsDuplicate(GetParentGroupInfo(fullPath, list)) :
@@ -417,12 +418,13 @@ public static class ItemsManager
             {
                 MyMessage.ShowError("Found Duplicate " + newName + @", Please Check it again before rename!!!");
             }
-            return;
+            return false;
         }
 
         treeView.SelectedNode.Text = newName;
         group.Identify.Name = newName;
         group.Identify.FullPath = treeView.SelectedNode.FullPath;
+        return true;
     }
 
     public static void ChangePath(TreeView treeView, string path, ListInfo? list = null)
@@ -455,14 +457,22 @@ public static class ItemsManager
     {
         list ??= PublicClass.TempListInfo;
         var fullPath = treeView.SelectedNode.FullPath;
-
-        var group = GetGroupInfo(fullPath, list);
+        GroupInfo group;
+        if (_lastGroupInfo != null! && _lastGroupInfo.Identify.FullPath == fullPath)
+        {
+            group = _lastGroupInfo;
+        }
+        else
+        {
+            group = GetGroupInfo(fullPath, list);
+        }
 
         group.Advance.Commands = command;
         group.Advance.TargetTypes = targetType;
         group.Advance.Admin = admin;
         group.Advance.CMD = cmd;
         group.Advance.CmdType = type;
+        _lastGroupInfo = group;
     }
 
     #endregion Utility

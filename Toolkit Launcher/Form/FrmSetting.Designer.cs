@@ -31,7 +31,12 @@
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(FrmSetting));
             this.menuDetect = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.addToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.headerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.separatorToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.itemToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.removeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.renameToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
             this.moveUpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.moveDownToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -50,7 +55,6 @@
             this.txtCommand = new System.Windows.Forms.TextBox();
             this.label4 = new System.Windows.Forms.Label();
             this.panelSpecialBot = new System.Windows.Forms.Panel();
-            this.btnSave = new System.Windows.Forms.Button();
             this.listTarget = new System.Windows.Forms.ListBox();
             this.label5 = new System.Windows.Forms.Label();
             this.radK = new System.Windows.Forms.RadioButton();
@@ -84,36 +88,76 @@
             // menuDetect
             // 
             this.menuDetect.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.addToolStripMenuItem,
             this.removeToolStripMenuItem,
+            this.renameToolStripMenuItem,
             this.toolStripSeparator2,
             this.moveUpToolStripMenuItem,
             this.moveDownToolStripMenuItem});
             this.menuDetect.Name = "menuDetect";
-            this.menuDetect.Size = new System.Drawing.Size(139, 76);
+            this.menuDetect.Size = new System.Drawing.Size(181, 142);
+            // 
+            // addToolStripMenuItem
+            // 
+            this.addToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.headerToolStripMenuItem,
+            this.separatorToolStripMenuItem,
+            this.itemToolStripMenuItem});
+            this.addToolStripMenuItem.Name = "addToolStripMenuItem";
+            this.addToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.addToolStripMenuItem.Text = "Add";
+            // 
+            // headerToolStripMenuItem
+            // 
+            this.headerToolStripMenuItem.Name = "headerToolStripMenuItem";
+            this.headerToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.headerToolStripMenuItem.Text = "Header";
+            this.headerToolStripMenuItem.Click += new System.EventHandler(this.headerToolStripMenuItem_Click);
+            // 
+            // separatorToolStripMenuItem
+            // 
+            this.separatorToolStripMenuItem.Name = "separatorToolStripMenuItem";
+            this.separatorToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.separatorToolStripMenuItem.Text = "Separator";
+            this.separatorToolStripMenuItem.Click += new System.EventHandler(this.separatorToolStripMenuItem_Click);
+            // 
+            // itemToolStripMenuItem
+            // 
+            this.itemToolStripMenuItem.Name = "itemToolStripMenuItem";
+            this.itemToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.itemToolStripMenuItem.Text = "Item";
+            this.itemToolStripMenuItem.Click += new System.EventHandler(this.itemToolStripMenuItem_Click);
             // 
             // removeToolStripMenuItem
             // 
             this.removeToolStripMenuItem.Name = "removeToolStripMenuItem";
-            this.removeToolStripMenuItem.Size = new System.Drawing.Size(138, 22);
+            this.removeToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.removeToolStripMenuItem.Text = "Remove";
             this.removeToolStripMenuItem.Click += new System.EventHandler(this.removeToolStripMenuItem_Click);
+            // 
+            // renameToolStripMenuItem
+            // 
+            this.renameToolStripMenuItem.Name = "renameToolStripMenuItem";
+            this.renameToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.renameToolStripMenuItem.Text = "Rename";
+            this.renameToolStripMenuItem.Click += new System.EventHandler(this.renameToolStripMenuItem_Click);
             // 
             // toolStripSeparator2
             // 
             this.toolStripSeparator2.Name = "toolStripSeparator2";
-            this.toolStripSeparator2.Size = new System.Drawing.Size(135, 6);
+            this.toolStripSeparator2.Size = new System.Drawing.Size(177, 6);
             // 
             // moveUpToolStripMenuItem
             // 
             this.moveUpToolStripMenuItem.Name = "moveUpToolStripMenuItem";
-            this.moveUpToolStripMenuItem.Size = new System.Drawing.Size(138, 22);
+            this.moveUpToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.moveUpToolStripMenuItem.Text = "Move Up";
             this.moveUpToolStripMenuItem.Click += new System.EventHandler(this.moveUpToolStripMenuItem_Click);
             // 
             // moveDownToolStripMenuItem
             // 
             this.moveDownToolStripMenuItem.Name = "moveDownToolStripMenuItem";
-            this.moveDownToolStripMenuItem.Size = new System.Drawing.Size(138, 22);
+            this.moveDownToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.moveDownToolStripMenuItem.Text = "Move Down";
             this.moveDownToolStripMenuItem.Click += new System.EventHandler(this.moveDownToolStripMenuItem_Click);
             // 
@@ -170,6 +214,7 @@
             this.treeOption.SelectedImageIndex = 0;
             this.treeOption.Size = new System.Drawing.Size(334, 386);
             this.treeOption.TabIndex = 6;
+            this.treeOption.AfterLabelEdit += new System.Windows.Forms.NodeLabelEditEventHandler(this.treeOption_AfterLabelEdit);
             this.treeOption.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.treeOption_AfterSelect);
             this.treeOption.KeyDown += new System.Windows.Forms.KeyEventHandler(this.treeOption_KeyDown);
             this.treeOption.MouseDown += new System.Windows.Forms.MouseEventHandler(this.treeOption_MouseDown);
@@ -243,7 +288,7 @@
             this.panelCustom.Location = new System.Drawing.Point(3, 19);
             this.panelCustom.Name = "panelCustom";
             this.panelCustom.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.panelCustom.Size = new System.Drawing.Size(283, 95);
+            this.panelCustom.Size = new System.Drawing.Size(283, 118);
             this.panelCustom.TabIndex = 9;
             // 
             // txtCommand
@@ -252,8 +297,9 @@
             this.txtCommand.Location = new System.Drawing.Point(6, 15);
             this.txtCommand.Multiline = true;
             this.txtCommand.Name = "txtCommand";
-            this.txtCommand.Size = new System.Drawing.Size(271, 80);
+            this.txtCommand.Size = new System.Drawing.Size(271, 103);
             this.txtCommand.TabIndex = 1;
+            this.txtCommand.TextChanged += new System.EventHandler(this.txtCommand_TextChanged);
             // 
             // label4
             // 
@@ -267,7 +313,6 @@
             // 
             // panelSpecialBot
             // 
-            this.panelSpecialBot.Controls.Add(this.btnSave);
             this.panelSpecialBot.Controls.Add(this.listTarget);
             this.panelSpecialBot.Controls.Add(this.label5);
             this.panelSpecialBot.Controls.Add(this.radK);
@@ -275,20 +320,10 @@
             this.panelSpecialBot.Controls.Add(this.chkCMD);
             this.panelSpecialBot.Controls.Add(this.chkAdmin);
             this.panelSpecialBot.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.panelSpecialBot.Location = new System.Drawing.Point(3, 114);
+            this.panelSpecialBot.Location = new System.Drawing.Point(3, 137);
             this.panelSpecialBot.Name = "panelSpecialBot";
-            this.panelSpecialBot.Size = new System.Drawing.Size(283, 147);
+            this.panelSpecialBot.Size = new System.Drawing.Size(283, 124);
             this.panelSpecialBot.TabIndex = 10;
-            // 
-            // btnSave
-            // 
-            this.btnSave.Location = new System.Drawing.Point(6, 119);
-            this.btnSave.Name = "btnSave";
-            this.btnSave.Size = new System.Drawing.Size(271, 23);
-            this.btnSave.TabIndex = 15;
-            this.btnSave.Text = "Save";
-            this.btnSave.UseVisualStyleBackColor = true;
-            this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
             // 
             // listTarget
             // 
@@ -304,6 +339,7 @@
             this.listTarget.SelectionMode = System.Windows.Forms.SelectionMode.MultiExtended;
             this.listTarget.Size = new System.Drawing.Size(189, 64);
             this.listTarget.TabIndex = 14;
+            this.listTarget.SelectedIndexChanged += new System.EventHandler(this.listTarget_SelectedIndexChanged);
             // 
             // label5
             // 
@@ -546,7 +582,11 @@
         private CheckBox chkCMD;
         private CheckBox chkAdmin;
         private Panel panelDetail;
-        private Button btnSave;
         private ImageList imageList1;
+        private ToolStripMenuItem addToolStripMenuItem;
+        private ToolStripMenuItem renameToolStripMenuItem;
+        private ToolStripMenuItem headerToolStripMenuItem;
+        private ToolStripMenuItem separatorToolStripMenuItem;
+        private ToolStripMenuItem itemToolStripMenuItem;
     }
 }
