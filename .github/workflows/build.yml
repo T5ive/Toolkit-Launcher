@@ -16,7 +16,7 @@ jobs:
             package-name: Net7
             build-dir: net7.0-windows
             proj-name: Toolkit-Launcher
-            solution-name: Toolkit-Launcher.sln
+            solution-name: Toolkit Launcher.sln
             config: Release
             dotnet: 7.0.x
 
