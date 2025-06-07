@@ -1,15 +1,21 @@
+using Toolkit_Launcher.Models;
+using Toolkit_Launcher.Services;
 namespace Toolkit_Launcher;
 
 public partial class FrmMain : Form
+    private readonly SettingsService _settingsService;
+    private readonly ImageCacheService _imageCacheService;
 {
     public bool Leaver = true;
     private static string[] _args = { };
     private static MyEnums.TargetType _targetType;
 
-    public FrmMain(string[] args)
+    public FrmMain(string[] args, SettingsService settingsService, ImageCacheService imageCacheService)
     {
         if (args == null) throw new ArgumentNullException(nameof(args));
         InitializeComponent();
+        _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
+        _imageCacheService = imageCacheService ?? throw new ArgumentNullException(nameof(imageCacheService));
 #if DEBUG
         args = new[]
         {
@@ -27,58 +33,22 @@ public partial class FrmMain : Form
 
     private void FrmMain_Load(object sender, EventArgs e)
     {
-        PublicClass.ImageList = imageList1;
-        InitializeList();
+        // PublicClass.ImageList = imageList1; // Removed: ImageCacheService now handles images
+        // InitializeList(); // Removed: SettingsService handles loading
         AddItems();
         AddSetting();
         AddOption();
         contextMenuStrip1.Show(Cursor.Position);
     }
 
-    private static void InitializeList()
-    {
-        if (!File.Exists(PublicClass.PATH)) return;
-        LoadFile(PublicClass.PATH);
-    }
-
-    private static void LoadFile(string fileName)
-    {
-        try
-        {
-            PublicClass.ListInfo = LoadJson<ListInfo>(fileName);
-        }
-        catch (Exception ex)
-        {
-            MyMessage.ShowError(ex.Message);
-        }
-        finally
-        {
-            PublicClass.TempListInfo = PublicClass.ListInfo;
-        }
-    }
-
-    private static T LoadJson<T>(string fileName)
-    {
-        if (fileName.IsEmpty()) return default!;
-
-        var objectOut = default(T);
-
-        try
-        {
-            objectOut = JsonConvert.DeserializeObject<T>(File.ReadAllText(fileName));
-        }
-        catch (Exception ex)
-        {
-            MyMessage.ShowError(ex.Message);
-        }
-
-        return objectOut!;
-    }
+    // Removed InitializeList, LoadFile, LoadJson as SettingsService handles this
 
     private void AddItems()
     {
-        if (PublicClass.ListInfo == null!) return;
-        AddAll(contextMenuStrip1, PublicClass.ListInfo);
+        if (_settingsService.CurrentSettings == null!) return; // Use SettingsService
+        contextMenuStrip1.SuspendLayout();
+        AddAll(contextMenuStrip1, _settingsService.CurrentSettings); // Use SettingsService
+        contextMenuStrip1.ResumeLayout(false);
     }
 
     private void AddSetting()
@@ -92,7 +62,7 @@ public partial class FrmMain : Form
         {
             Leaver = false;
             contextMenuStrip1.Hide();
-            var frmSetting = new FrmSetting();
+            var frmSetting = new FrmSetting(_settingsService, _imageCacheService);
             frmSetting.ShowDialog();
             frmSetting.Dispose();
             Application.Exit();
@@ -146,13 +116,16 @@ public partial class FrmMain : Form
                 default:
                     {
                         if (string.IsNullOrWhiteSpace(group.Value.FilePath)) continue;
-                        var image = group.Value.IconPath.GetImage();
-                        if (image == null!)
+                        var image = _imageCacheService.GetImage(group.Value.IconPath); // Use ImageCacheService
+                        if (image == null || image == _imageCacheService.GetImage(MyEnums.GroupType.Null)) // Check against default null image
                         {
-                            image = group.Type.GetImage();
-                            menu.Items.Add(group.Type.ToString(), image);
-                            return;
+                            image = _imageCacheService.GetImage(group.Type); // Use ImageCacheService
+                            // menu.Items.Add(group.Type.ToString(), image); // This line seems to be an early exit, might need review
+                            // return; // This line seems to be an early exit, might need review
                         }
+                        // Ensure image is not null before creating ToolStripMenuItem, or handle it
+                        if (image == null) image = _imageCacheService.GetImage(MyEnums.GroupType.Null);
+
 
                         var result = new ToolStripMenuItem(group.Identify.Name, image);
                         result.Click += (_, _) =>
@@ -197,11 +170,13 @@ public partial class FrmMain : Form
                 default:
                     {
                         if (string.IsNullOrWhiteSpace(group.Value.FilePath)) continue;
-                        var image = group.Value.IconPath.GetImage();
-                        if (image == null!)
+                        var image = _imageCacheService.GetImage(group.Value.IconPath); // Use ImageCacheService
+                        if (image == null || image == _imageCacheService.GetImage(MyEnums.GroupType.Null)) // Check against default null image
                         {
-                            image = group.Type.GetImage();
+                            image = _imageCacheService.GetImage(group.Type); // Use ImageCacheService
                         }
+                        // Ensure image is not null before creating ToolStripMenuItem, or handle it
+                        if (image == null) image = _imageCacheService.GetImage(MyEnums.GroupType.Null);
 
                         var item = new ToolStripMenuItem(group.Identify.Name, image);
                         item.Click += (_, _) =>

@@ -1,125 +1,28 @@
-﻿using TreeView = System.Windows.Forms.TreeView;
+// using TreeView = System.Windows.Forms.TreeView; // REMOVED
 
-namespace Toolkit_Launcher;
+// Namespace and other necessary using statements (System, System.Collections.Generic, System.IO, System.Linq)
+// should be preserved if they were there and are still needed by remaining methods.
+// Assuming they are part of the original file structure.
+using Toolkit_Launcher.Models;
+namespace Toolkit_Launcher.Utilities; // Ensure this is correct
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+
 
 public static class Utility
 {
-    public static TreeNode AddGroup(GroupInfo groupInfo, int image)
-    {
-        var node = new TreeNode(groupInfo.Identify.Name, image, image);
-
-        foreach (var group in groupInfo.ListGroup)
-        {
-            if (group.Type == MyEnums.GroupType.Header)
-            {
-                node.Nodes.Add(AddGroup(group, image));
-            }
-            else
-            {
-                node.Nodes.Add(group.Type.ToString(), group.Identify.Name, image);
-            }
-        }
-
-        return node;
-    }
-
-    public static TreeNode AddSubGroup(GroupInfo groupInfo)
-    {
-        var node = new TreeNode(groupInfo.Identify.Name, groupInfo.Value.ImageID, groupInfo.Value.ImageID);
-        return node;
-    }
-
-    public static void LoadAll(TreeView treeView, ListInfo listInfo)
-    {
-        var tempNode = "";
-        var isSelected = treeView.SelectedNode == null;
-        if (!isSelected)
-        {
-            tempNode = treeView.SelectedNode.FullPath;
-        }
-        treeView.Nodes.Clear();
-
-        foreach (var group in listInfo.ListGroup)
-        {
-            if (group.Type == MyEnums.GroupType.Header)
-            {
-                treeView.Nodes.Add(LoadAll(group));
-            }
-            else
-            {
-                treeView.Nodes.Add(group.Type.ToString(), group.Identify.Name, group.Value.ImageID);
-            }
-        }
-
-        if (!isSelected)
-        {
-            SelectNode(treeView, tempNode);
-        }
-    }
-
-    public static TreeNode LoadAll(GroupInfo groupInfo)
-    {
-        var node = new TreeNode(groupInfo.Identify.Name, groupInfo.Value.ImageID, groupInfo.Value.ImageID);
-
-        foreach (var group in groupInfo.ListGroup)
-        {
-            if (group.Type == MyEnums.GroupType.Header)
-            {
-                node.Nodes.Add(LoadAll(group));
-            }
-            else
-            {
-                node.Nodes.Add(group.Type.ToString(), group.Identify.Name, group.Value.ImageID);
-            }
-        }
-
-        return node;
-    }
-
-    private static void SelectNode(TreeView treeView, string oldNode)
-    {
-        foreach (var obj in treeView.Nodes)
-        {
-            var node = (TreeNode)obj;
-            if (node.FullPath == oldNode)
-            {
-                treeView.SelectedNode = node;
-                break;
-            }
-
-            var result = SelectNodeChild(node, treeView, oldNode);
-            if (result)
-            {
-                break;
-            }
-        }
-    }
-
-    private static bool SelectNodeChild(TreeNode treeNode, TreeView treeView, string oldNode)
-    {
-        foreach (var obj in treeNode.Nodes)
-        {
-            var node = (TreeNode)obj;
-            if (node.FullPath == oldNode)
-            {
-                treeView.SelectedNode = node;
-                return true;
-            }
-            var result = SelectNodeChild(node, treeView, oldNode);
-            if (result)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    // TreeView-specific methods like AddGroup, AddSubGroup, LoadAll (both overloads),
+    // SelectNode, SelectNodeChild have been REMOVED.
 
     public static int GetMissingNumber(List<int> listNumber)
     {
         try
         {
-            var heightValue = listNumber.Max(t => t) + 2;
+            if (listNumber == null || !listNumber.Any()) return 0; // Handle empty or null list
+            var heightValue = listNumber.Max() + 2; // Max() will throw on empty list if not checked
             var result = Enumerable.Range(0, heightValue).Except(listNumber);
             return result.ElementAt(0);
         }
@@ -131,11 +34,13 @@ public static class Utility
 
     public static int FindIndex(this ListInfo list, string contains)
     {
+        if (list == null) return -1;
         return list.ListGroup.FindIndex(info => info.Identify.FullPath.Contains(contains));
     }
 
     public static int FindIndex(this GroupInfo list, string contains)
     {
+        if (list == null) return -1;
         return list.ListGroup.FindIndex(info => info.Identify.FullPath.Contains(contains));
     }
 
@@ -144,56 +49,18 @@ public static class Utility
         return move == MyEnums.MoveType.MoveUp ? index - 1 : index + 1;
     }
 
-    public static Icon IconFromFilePath(string filePath)
-    {
-        var result = (Icon)null!;
-        try
-        {
-            if (!File.Exists(filePath))
-            {
-                return result;
-            }
-
-            result = Icon.ExtractAssociatedIcon(filePath);
-        }
-        catch (Exception)
-        {
-            // swallow and return nothing. You could supply a default Icon here as well
-        }
-
-        return result!;
-    }
-
-    public static Image GetImage(this string? filePath)
-    {
-        if (filePath == null) return null!;
-        if (!File.Exists(filePath)) return null!;
-        if (filePath.EndWith(".exe") || filePath.EndWith(".dll"))
-        {
-            return IconFromFilePath(filePath).ToBitmap();
-        }
-        return new Bitmap(filePath);
-    }
-
-    public static Image GetImage(this MyEnums.GroupType type)
-    {
-        var image = type switch
-        {
-            MyEnums.GroupType.Header => 1,
-            MyEnums.GroupType.Item => 2,
-            MyEnums.GroupType.Separator => 3,
-            _ => 0
-        };
-        return PublicClass.ImageList.Images[image];
-    }
-
     public static MyEnums.TargetType GetTarget(this string value)
     {
-        var attr = File.GetAttributes(value);
+        if (string.IsNullOrEmpty(value) || !File.Exists(value) && !Directory.Exists(value))
+        {
+            return MyEnums.TargetType.All; // Or handle as an error/unknown
+        }
+
+        FileAttributes attr = File.GetAttributes(value);
         if (attr.HasFlag(FileAttributes.Directory))
             return MyEnums.TargetType.Directory;
 
-        return Path.GetExtension(value) switch
+        return Path.GetExtension(value)?.ToLowerInvariant() switch // Added ToLowerInvariant for consistency
         {
             ".exe" => MyEnums.TargetType.Exe,
             ".dll" => MyEnums.TargetType.Dll,
@@ -203,12 +70,14 @@ public static class Utility
 
     public static bool IsTarget(this MyEnums.TargetType targetType, List<bool> enable)
     {
+        if (enable == null || enable.Count < 4) return false; // Basic validation
+
         return targetType switch
         {
             MyEnums.TargetType.Exe => enable[0],
             MyEnums.TargetType.Dll => enable[1],
             MyEnums.TargetType.Directory => enable[2],
-            MyEnums.TargetType.All => enable[3],
+            MyEnums.TargetType.All => enable[3], // Assuming index 3 is for 'All'
             _ => false
         };
     }

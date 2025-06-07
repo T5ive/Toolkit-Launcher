@@ -1,87 +1,91 @@
-﻿using TreeView = System.Windows.Forms.TreeView;
+using Toolkit_Launcher.Models;
+namespace Toolkit_Launcher.ItemManager; // Changed namespace
 
-namespace Toolkit_Launcher.Helper;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Toolkit_Launcher; // For MyEnums
+using Toolkit_Launcher.Models; // For ListInfo, GroupInfo etc. (already added by script)
+using Toolkit_Launcher.Utilities; // For Utility.GetMissingNumber
+// TreeView using removed as it's no longer directly manipulated.
 
-public static class ItemsManager
+public class ItemsManager // Changed to instance class
 {
+    private ListInfo _listInfo;
+    private GroupInfo _lastGroupInfo; // Instance field
+
+    public event EventHandler ItemsChanged; // General event for reloading the tree
+    // More specific events can be added later if needed (e.g., ItemAdded, ItemRenamed with specific args)
+
+    public ItemsManager(ListInfo listInfo)
+    {
+        _listInfo = listInfo ?? throw new ArgumentNullException(nameof(listInfo));
+    }
+
+    protected virtual void OnItemsChanged()
+    {
+        ItemsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     #region Add Group
-
-    public static void AddGroup(MyEnums.GroupType type, TreeView treeView, ListInfo? list = null)
+    public GroupInfo AddGroup(MyEnums.GroupType type, string parentFullPath = null)
     {
-        list ??= PublicClass.TempListInfo;
-        var selectedNode = treeView.SelectedNode;
-        var fullPath = selectedNode == null ? "" : treeView.SelectedNode.FullPath;
-        GroupInfo mainGroup;
-        var newGroup = new GroupInfo();
-        if (string.IsNullOrWhiteSpace(fullPath))
+        GroupInfo newGroup;
+        if (string.IsNullOrWhiteSpace(parentFullPath))
         {
-            mainGroup = GroupInfo(list, type);
-            list.ListGroup.Add(mainGroup);
+            newGroup = CreateNewGroupInfo(_listInfo, type);
+            _listInfo.ListGroup.Add(newGroup);
         }
         else
         {
-            mainGroup = GetGroupInfo(fullPath, list);
-            newGroup = GroupInfo(mainGroup, type, fullPath);
-            mainGroup.ListGroup.Add(newGroup);
+            var parentGroup = GetGroupInfoByPath(parentFullPath, _listInfo);
+            if (parentGroup == null) throw new ArgumentException("Parent group not found", nameof(parentFullPath));
+            newGroup = CreateNewGroupInfo(parentGroup, type, parentFullPath);
+            parentGroup.ListGroup.Add(newGroup);
         }
-
-        if (selectedNode == null)
-        {
-            treeView.Nodes.Add(Utility.AddGroup(mainGroup, mainGroup.Value.ImageID));
-        }
-        else
-        {
-            selectedNode.Nodes.Add(Utility.AddSubGroup(newGroup));
-            selectedNode.Expand();
-        }
+        OnItemsChanged();
+        return newGroup; // Return the new group so UI can select/focus it
     }
+    #endregion
 
-    #endregion Add Group
-
-    #region Create New Class
-
-    private static GroupInfo GroupInfo(ListInfo list, MyEnums.GroupType type)
+    #region Create New Class (internal logic, largely unchanged but uses instance _listInfo if needed)
+    private GroupInfo CreateNewGroupInfo(ListInfo list, MyEnums.GroupType type)
     {
-        var index = GetNewIndex(list);
+        var index = GetNewIndex(list.ListGroup);
         var name = $"{type}: {index}";
         return new GroupInfo
         {
-            Identify = Identify(index, name, name),
-            Value = Value(type),
+            Identify = CreateIdentify(index, name, name),
+            Value = CreateValueInfo(type),
             Type = type,
-            Advance = Advance()
+            Advance = CreateAdvanceInfo()
         };
     }
 
-    private static GroupInfo GroupInfo(GroupInfo list, MyEnums.GroupType type, string fullPath)
+    private GroupInfo CreateNewGroupInfo(GroupInfo parentGroup, MyEnums.GroupType type, string parentFullPath)
     {
-        var index = GetNewIndex(list);
+        var index = GetNewIndex(parentGroup.ListGroup);
         var name = $"{type}: {index}";
-        fullPath = $"{fullPath}\\{name}";
+        var newFullPath = $"{parentFullPath}\{name}";
         return new GroupInfo
         {
-            Identify = Identify(index, name, fullPath),
-            Value = Value(type),
+            Identify = CreateIdentify(index, name, newFullPath),
+            Value = CreateValueInfo(type),
             Type = type,
-            Advance = Advance()
+            Advance = CreateAdvanceInfo()
         };
     }
 
-    private static Identify Identify(int index, string name, string fullPath)
+    private Identify CreateIdentify(int index, string name, string fullPath)
     {
-        return new Identify
-        {
-            Index = index,
-            Name = name,
-            FullPath = fullPath
-        };
+        return new Identify { Index = index, Name = name, FullPath = fullPath };
     }
 
-    private static ValueInfo Value(MyEnums.GroupType type)
+    private ValueInfo CreateValueInfo(MyEnums.GroupType type)
     {
         return new ValueInfo
         {
-            ImageID = type switch
+            ImageID = type switch // This ImageID might need to be re-evaluated or managed by ImageCacheService if it's for UI.
             {
                 MyEnums.GroupType.Header => 1,
                 MyEnums.GroupType.Item => 2,
@@ -91,389 +95,238 @@ public static class ItemsManager
         };
     }
 
-    private static AdvanceInfo Advance()
+    private AdvanceInfo CreateAdvanceInfo()
     {
-        return new AdvanceInfo
-        {
-            TargetTypes = new List<bool>
-            {
-                true,
-                true,
-                false,
-                false
-            }
-        };
+        return new AdvanceInfo { TargetTypes = new List<bool> { true, true, false, false } };
     }
-
-    #endregion Create New Class
+    #endregion
 
     #region Get New Index
-
-    private static int GetNewIndex(ListInfo list)
+    private int GetNewIndex(List<GroupInfo> groupList)
     {
-        var listIndex = new List<int>();
-        listIndex.AddRange(list.ListGroup.Select(group => group.Identify.Index));
-
-        return Utility.GetMissingNumber(listIndex);
+        if (!groupList.Any()) return 0;
+        var listIndex = groupList.Select(group => group.Identify.Index).ToList();
+        return Utility.GetMissingNumber(listIndex); // Assuming Utility.GetMissingNumber is static and accessible
     }
-
-    private static int GetNewIndex(GroupInfo list)
-    {
-        var listIndex = new List<int>();
-        listIndex.AddRange(list.ListGroup.Select(group => group.Identify.Index));
-        return Utility.GetMissingNumber(listIndex);
-    }
-
-    #endregion Get New Index
+    #endregion
 
     #region Get Class Info
-
-    private static GroupInfo GetParentGroupInfo(string fullPath, ListInfo list)
+    public GroupInfo GetParentGroupInfoByPath(string fullPath) => GetParentGroupInfoRecursive(fullPath, _listInfo);
+    private GroupInfo GetParentGroupInfoRecursive(string fullPath, ListInfo list)
     {
-        var result = new GroupInfo();
-        var index = fullPath.LastIndexOf("\\", StringComparison.Ordinal);
-        if (index >= 0)
-            fullPath = fullPath[..index];
+        var parentPath = "";
+        var lastSeparatorIndex = fullPath.LastIndexOf("\\", StringComparison.Ordinal); // Corrected backslash
+        if (lastSeparatorIndex >= 0)
+            parentPath = fullPath.Substring(0, lastSeparatorIndex);
+        else
+            return null; // Top-level item, no parent in the context of GroupInfo
 
-        foreach (var group in list.ListGroup)
-        {
-            if (fullPath == group.Identify.FullPath)
-            {
-                return group;
-            }
-            result = GetGroupInfoChild(fullPath, group);
-            if (result.Identify != null!)
-            {
-                return result;
-            }
-        }
-        return result;
+        return GetGroupInfoByPath(parentPath, list);
     }
 
-    private static GroupInfo GetGroupInfo(string fullPath, ListInfo list)
-    {
-        var result = new GroupInfo();
-        foreach (var group in list.ListGroup)
-        {
-            if (fullPath == group.Identify.FullPath)
-            {
-                return group;
-            }
-            result = GetGroupInfoChild(fullPath, group);
-            if (result.Identify != null!)
-            {
-                return result;
-            }
-        }
-        return result;
-    }
-
-    private static GroupInfo GetGroupInfoChild(string fullPath, GroupInfo list)
+    public GroupInfo GetGroupInfoByPath(string fullPath) => GetGroupInfoByPath(fullPath, _listInfo);
+    private GroupInfo GetGroupInfoByPath(string fullPath, ListInfo list) /* Was GetGroupInfo */
     {
         foreach (var group in list.ListGroup)
         {
-            if (fullPath == group.Identify.FullPath)
-            {
-                return group;
-            }
-
-            var result = GetGroupInfoChild(fullPath, group);
-            if (result.Identify != null!)
-            {
-                return result;
-            }
+            if (fullPath == group.Identify.FullPath) return group;
+            var foundInChild = GetGroupInfoByPathRecursive(fullPath, group);
+            if (foundInChild != null) return foundInChild;
         }
-        return new GroupInfo();
+        return null;
     }
 
-    #endregion Get Class Info
+    private GroupInfo GetGroupInfoByPathRecursive(string fullPath, GroupInfo parentGroup) /* Was GetGroupInfoChild */
+    {
+        foreach (var group in parentGroup.ListGroup)
+        {
+            if (fullPath == group.Identify.FullPath) return group;
+            var foundInChild = GetGroupInfoByPathRecursive(fullPath, group);
+            if (foundInChild != null) return foundInChild;
+        }
+        return null;
+    }
+    #endregion
 
     #region Get Type
-
-    public static MyEnums.GroupType GetType(string fullPath, ListInfo list = null!)
+    public MyEnums.GroupType GetGroupType(string fullPath)
     {
-        list ??= PublicClass.TempListInfo;
-        foreach (var group in list.ListGroup)
-        {
-            if (group.Identify.FullPath == fullPath)
-                return group.Type;
-
-            if (group.Type == MyEnums.GroupType.Header)
-            {
-                var result = GetTypeChild(fullPath, group);
-                if (GetTypeChild(fullPath, group) != MyEnums.GroupType.Null)
-                {
-                    return result;
-                }
-            }
-        }
-
-        return MyEnums.GroupType.Null;
+        var group = GetGroupInfoByPath(fullPath, _listInfo);
+        return group?.Type ?? MyEnums.GroupType.Null;
     }
-
-    private static MyEnums.GroupType GetTypeChild(string fullPath, GroupInfo list)
-    {
-        foreach (var group in list.ListGroup)
-        {
-            if (group.Identify.FullPath == fullPath)
-                return group.Type;
-
-            if (group.Type == MyEnums.GroupType.Header)
-            {
-                var result = GetTypeChild(fullPath, group);
-                if (GetTypeChild(fullPath, group) != MyEnums.GroupType.Null)
-                {
-                    return result;
-                }
-            }
-        }
-        return MyEnums.GroupType.Null;
-    }
-
-    #endregion Get Type
-
-    #region Get Detail
-
-    public static GroupInfo GetGroupDetail(TreeView treeView, ListInfo? list = null)
-    {
-        list ??= PublicClass.TempListInfo;
-        var fullPath = treeView.SelectedNode.FullPath;
-        return GetGroupInfo(fullPath, list);
-    }
-
-    #endregion Get Detail
+    #endregion
 
     #region Remove
-
-    public static void Remove(TreeView treeView, ListInfo? list = null)
+    public bool RemoveGroup(string fullPath)
     {
-        list ??= PublicClass.TempListInfo;
-        var fullPath = treeView.SelectedNode.FullPath;
-        if (MyMessage.OkCancel($"Press \"OK\" to confirm the deletion \"{treeView.SelectedNode.Text}\"\n" +
-                                  "Press \"Cancel\" to confirm cancellation"))
-        {
-            var group = GetGroupInfo(fullPath, list);
-            Remove(group, list);
-            treeView.SelectedNode.Remove();
-        }
-    }
+        var groupToRemove = GetGroupInfoByPath(fullPath, _listInfo);
+        if (groupToRemove == null) return false;
 
-    private static void Remove(GroupInfo groupInfo, ListInfo list)
-    {
-        foreach (var group in list.ListGroup)
+        var parentPath = "";
+        var lastSeparatorIndex = fullPath.LastIndexOf("\\", StringComparison.Ordinal); // Corrected backslash
+        if (lastSeparatorIndex >= 0)
         {
-            if (groupInfo.Identify.FullPath == group.Identify.FullPath)
+            parentPath = fullPath.Substring(0, lastSeparatorIndex);
+            var parentGroup = GetGroupInfoByPath(parentPath, _listInfo);
+            if (parentGroup != null)
             {
-                list.ListGroup.Remove(groupInfo);
-                break;
-            }
-            if (group.Type == MyEnums.GroupType.Header)
-            {
-                var result = RemoveChild(groupInfo, group);
-                if (result)
-                {
-                    break;
-                }
+                bool removed = parentGroup.ListGroup.Remove(groupToRemove);
+                if (removed) OnItemsChanged();
+                return removed;
             }
         }
-    }
-
-    private static bool RemoveChild(GroupInfo groupInfo, GroupInfo list)
-    {
-        foreach (var group in list.ListGroup)
+        else // Top-level item
         {
-            if (groupInfo.Identify.FullPath == group.Identify.FullPath)
-            {
-                list.ListGroup.Remove(groupInfo);
-                return true;
-            }
-            if (group.Type == MyEnums.GroupType.Header)
-            {
-                var result = RemoveChild(groupInfo, group);
-                if (result)
-                {
-                    return true;
-                }
-            }
+            bool removed = _listInfo.ListGroup.Remove(groupToRemove);
+            if (removed) OnItemsChanged();
+            return removed;
         }
-
         return false;
     }
-
-    #endregion Remove
+    #endregion
 
     #region Move Up/Down
-
-    public static void MoveUpDown(MyEnums.MoveType move, TreeView treeView, ListInfo? list = null)
+    public bool MoveGroup(string fullPath, MyEnums.MoveType moveType)
     {
-        list ??= PublicClass.TempListInfo;
-        var fullPath = treeView.SelectedNode.FullPath;
-        var group = GetGroupInfo(fullPath, list);
-        MoveUpDown(move, group, list);
-        Utility.LoadAll(treeView, list);
-        treeView.SelectedNode.Expand();
-    }
+        List<GroupInfo> parentList;
+        var groupToMove = GetGroupInfoByPath(fullPath, _listInfo);
+        if (groupToMove == null) return false;
 
-    private static void MoveUpDown(MyEnums.MoveType move, GroupInfo groupInfo, ListInfo list)
-    {
-        for (var i = 0; i < list.ListGroup.Count; i++)
+        var parentPath = "";
+        var lastSeparatorIndex = fullPath.LastIndexOf("\\", StringComparison.Ordinal); // Corrected backslash
+        if (lastSeparatorIndex >= 0)
         {
-            var group = list.ListGroup[i];
-            if (groupInfo.Identify.FullPath == group.Identify.FullPath)
-            {
-                var oldIndex = list.FindIndex(group.Identify.FullPath);
-                var newIndex = move.GetNewIndex(oldIndex);
-
-                list.ListGroup.RemoveAt(oldIndex);
-                if (move == MyEnums.MoveType.MoveDown)
-                {
-                    list.ListGroup[oldIndex].Identify.Index = oldIndex;
-                }
-                else
-                {
-                    list.ListGroup[newIndex].Identify.Index = oldIndex;
-                }
-                group.Identify.Index = newIndex;
-
-                list.ListGroup.Insert(newIndex, group);
-                break;
-            }
-
-            if (group.Type == MyEnums.GroupType.Header)
-            {
-                var result = MoveUpDownChild(move, groupInfo, group);
-                if (result)
-                {
-                    break;
-                }
-            }
-        }
-    }
-
-    private static bool MoveUpDownChild(MyEnums.MoveType move, GroupInfo groupInfo, GroupInfo list)
-    {
-        for (var i = 0; i < list.ListGroup.Count; i++)
-        {
-            var group = list.ListGroup[i];
-            if (groupInfo.Identify.FullPath == group.Identify.FullPath)
-            {
-                var oldIndex = list.FindIndex(group.Identify.FullPath);
-                var newIndex = move.GetNewIndex(oldIndex);
-
-                list.ListGroup.RemoveAt(oldIndex);
-                if (move == MyEnums.MoveType.MoveDown)
-                {
-                    list.ListGroup[oldIndex].Identify.Index = oldIndex;
-                }
-                else
-                {
-                    list.ListGroup[newIndex].Identify.Index = oldIndex;
-                }
-                group.Identify.Index = newIndex;
-                list.ListGroup.Insert(newIndex, group);
-                break;
-            }
-
-            var result = MoveUpDownChild(move, groupInfo, group);
-            if (result)
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    #endregion Move Up/Down
-
-    #region Utility
-
-    private static GroupInfo _lastGroupInfo = null!;
-    public static void UpdateIdentify(TreeView treeView, string newName, string path, string iconPath, ListInfo? list = null)
-    {
-        list ??= PublicClass.TempListInfo;
-        var fullPath = treeView.SelectedNode.FullPath;
-        var group = GetGroupInfo(fullPath, list);
-        group.Value.FilePath = path;
-        group.Value.IconPath = iconPath;
-
-        Rename(treeView, group, fullPath, newName, list, false);
-    }
-
-    public static bool Rename(TreeView treeView, string newName, ListInfo? list = null)
-    {
-        list ??= PublicClass.TempListInfo;
-        var fullPath = treeView.SelectedNode.FullPath;
-        var group = GetGroupInfo(fullPath, list);
-        return Rename(treeView, group, fullPath, newName, list);
-    }
-
-    private static bool Rename(TreeView treeView, GroupInfo group, string fullPath, string newName, ListInfo list, bool duplicate = true)
-    {
-        var isDuplicate = fullPath.Contains('\\') ?
-            newName.IsDuplicate(GetParentGroupInfo(fullPath, list)) :
-            newName.IsDuplicate(list);
-        if (isDuplicate)
-        {
-            if (duplicate)
-            {
-                MyMessage.ShowError("Found Duplicate " + newName + @", Please Check it again before rename!!!");
-            }
-            return false;
-        }
-
-        treeView.SelectedNode.Text = newName;
-        group.Identify.Name = newName;
-        group.Identify.FullPath = treeView.SelectedNode.FullPath;
-        return true;
-    }
-
-    public static void ChangePath(TreeView treeView, string path, ListInfo? list = null)
-    {
-        list ??= PublicClass.TempListInfo;
-        var fullPath = treeView.SelectedNode.FullPath;
-        var group = GetGroupInfo(fullPath, list);
-        group.Value.FilePath = path;
-    }
-
-    public static void ChangeIconPath(TreeView treeView, string iconPath, ListInfo? list = null)
-    {
-        list ??= PublicClass.TempListInfo;
-        var fullPath = treeView.SelectedNode.FullPath;
-        var group = GetGroupInfo(fullPath, list);
-        group.Value.IconPath = iconPath;
-    }
-
-    public static void ChangeBothPath(TreeView treeView, string path, string iconPath, ListInfo? list = null)
-    {
-        list ??= PublicClass.TempListInfo;
-        var fullPath = treeView.SelectedNode.FullPath;
-        var group = GetGroupInfo(fullPath, list);
-        group.Value.FilePath = path;
-        group.Value.IconPath = iconPath;
-    }
-
-    public static void UpdateInfo(TreeView treeView, string command, List<bool> targetType, bool admin, bool cmd,
-        MyEnums.CMDType type, ListInfo? list = null)
-    {
-        list ??= PublicClass.TempListInfo;
-        var fullPath = treeView.SelectedNode.FullPath;
-        GroupInfo group;
-        if (_lastGroupInfo != null! && _lastGroupInfo.Identify.FullPath == fullPath)
-        {
-            group = _lastGroupInfo;
+            parentPath = fullPath.Substring(0, lastSeparatorIndex);
+            var parentGroup = GetGroupInfoByPath(parentPath, _listInfo);
+            if (parentGroup == null) return false;
+            parentList = parentGroup.ListGroup;
         }
         else
         {
-            group = GetGroupInfo(fullPath, list);
+            parentList = _listInfo.ListGroup;
         }
 
-        group.Advance.Commands = command;
-        group.Advance.TargetTypes = targetType;
-        group.Advance.Admin = admin;
-        group.Advance.CMD = cmd;
-        group.Advance.CmdType = type;
-        _lastGroupInfo = group;
+        var currentIndex = parentList.IndexOf(groupToMove);
+        if (currentIndex < 0) return false;
+
+        var newIndex = moveType == MyEnums.MoveType.MoveUp ? currentIndex - 1 : currentIndex + 1;
+
+        if (newIndex < 0 || newIndex >= parentList.Count) return false;
+
+        // Simple swap for now; actual index property update might be more complex if they are not just for ordering
+        var temp = parentList[newIndex];
+        parentList[newIndex] = groupToMove;
+        parentList[currentIndex] = temp;
+
+        // Update Identify.Index if it's meant to reflect order
+        for(int i=0; i<parentList.Count; i++) parentList[i].Identify.Index = i;
+
+        OnItemsChanged();
+        return true;
+    }
+    #endregion
+
+    #region Update/Rename/Change Path
+    public bool RenameGroup(string fullPath, string newName)
+    {
+        var group = GetGroupInfoByPath(fullPath, _listInfo);
+        if (group == null) return false;
+
+        // Check for duplicates
+        var parentGroup = GetParentGroupInfoByPath(fullPath);
+        bool isDuplicate;
+        if (parentGroup != null)
+        {
+            isDuplicate = parentGroup.ListGroup.Any(g => g != group && g.Identify.Name == newName);
+        }
+        else
+        {
+            isDuplicate = _listInfo.ListGroup.Any(g => g != group && g.Identify.Name == newName);
+        }
+
+        if (isDuplicate)
+        {
+            // Consider throwing an exception or returning a specific result for duplication
+            return false;
+        }
+
+        var oldName = group.Identify.Name;
+        group.Identify.Name = newName;
+
+        // Update FullPath for the renamed group and all its children
+        var oldFullPathPrefix = group.Identify.FullPath;
+        var newFullPath = "";
+        if (parentGroup != null) {
+            newFullPath = $"{parentGroup.Identify.FullPath}\{newName}";
+        } else {
+            newFullPath = newName;
+        }
+        group.Identify.FullPath = newFullPath;
+        UpdateChildFullPaths(group, oldFullPathPrefix, newFullPath);
+
+        OnItemsChanged();
+        return true;
     }
 
-    #endregion Utility
+    private void UpdateChildFullPaths(GroupInfo parentGroup, string oldParentFullPath, string newParentFullPath)
+    {
+        foreach (var child in parentGroup.ListGroup)
+        {
+            var oldChildFullPath = child.Identify.FullPath;
+            // The child's path started with oldParentFullPath, now it needs to start with newParentFullPath
+            // The relative part of the child's path is oldChildFullPath.Substring(oldParentFullPath.Length)
+            var relativePath = oldChildFullPath.Substring(oldParentFullPath.Length);
+            child.Identify.FullPath = $"{newParentFullPath}{relativePath}"; // This assumes direct concatenation, might need separator logic
+
+            // If the child's name itself defined part of the old path, this needs careful handling.
+            // For now, assuming FullPath is constructed like "ParentPath\ChildName"
+            // A simpler way if only the name changed:
+            // child.Identify.FullPath = $"{newParentFullPath}\{child.Identify.Name}";
+
+
+            UpdateChildFullPaths(child, oldChildFullPath, child.Identify.FullPath);
+        }
+    }
+
+
+    public bool UpdateGroupValuePaths(string fullPath, string newFilePath, string newIconPath)
+    {
+        var group = GetGroupInfoByPath(fullPath, _listInfo);
+        if (group == null || group.Type == MyEnums.GroupType.Separator) return false;
+
+        bool changed = false;
+        if (group.Value.FilePath != newFilePath)
+        {
+            group.Value.FilePath = newFilePath;
+            changed = true;
+        }
+        if (group.Value.IconPath != newIconPath)
+        {
+            group.Value.IconPath = newIconPath;
+            changed = true;
+        }
+        if (changed) OnItemsChanged(); // Or a more specific event like ItemDataChanged
+        return true;
+    }
+
+    public bool UpdateGroupAdvanceInfo(string fullPath, string command, List<bool> targetTypes, bool isAdmin, bool isCmd, MyEnums.CMDType cmdType)
+    {
+        var group = GetGroupInfoByPath(fullPath, _listInfo);
+        if (group == null) return false;
+
+        // Cache _lastGroupInfo for potential optimization if UpdateInfo is called repeatedly for the same group
+        // Though with instance methods, this might be less necessary or handled differently by the caller.
+        _lastGroupInfo = group;
+
+        group.Advance.Commands = command;
+        group.Advance.TargetTypes = targetTypes;
+        group.Advance.Admin = isAdmin;
+        group.Advance.CMD = isCmd;
+        group.Advance.CmdType = cmdType;
+
+        OnItemsChanged(); // Or a more specific event
+        return true;
+    }
+
+    #endregion
 }

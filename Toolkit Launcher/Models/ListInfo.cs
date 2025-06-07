@@ -1,5 +1,7 @@
 ﻿namespace Toolkit_Launcher;
 
+using Toolkit_Launcher; // For MyEnums
+
 public class ListInfo
 {
     public List<GroupInfo> ListGroup { get; set; } = new List<GroupInfo>();
