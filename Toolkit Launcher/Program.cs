@@ -7,7 +7,10 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        var settingsService = new Toolkit_Launcher.Services.SettingsService();
+        var imageCacheService = new Toolkit_Launcher.Services.ImageCacheService();
         ApplicationConfiguration.Initialize();
-        Application.Run(FrmMain = new FrmMain(args));
+        Application.Run(FrmMain = new FrmMain(args, settingsService, imageCacheService));
+        Application.Run(FrmMain = new FrmMain(args, settingsService, imageCacheService));
     }
 }
